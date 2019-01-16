@@ -1,72 +1,52 @@
 
+const countrys = [ { 'code': 'us', 'country': 'United States of America' }, { 'code': 'au', 'country': 'Commonwealth of Australia' }, { 'code': 'no', 'country': 'Kongeriket Norge' }, { 'code': 'it', 'country': 'Repubblica Italiana' }, { 'code': 'gb', 'country': 'United Kingdom of Great Britain and Northern Ireland' }, { 'code': 'de', 'country': 'Bundesrepublik Deutschland' }, { 'code': 'br', 'country': 'República Federativa do Brasil' }, { 'code': 'ca', 'country': 'Canada' }, { 'code': 'ar', 'country': 'República Argentina' }, { 'code': 'fr', 'country': 'République française' }, { 'code': 'in', 'country': 'Bhārat Gaṇarājya' }, { 'code': 'ru', 'country': 'Росси́йская Федера́ция' }, { 'code': 'se', 'country': 'Konungariket Sverige' }, { 'code': 'za', 'country': 'Republic of South Africa' }, { 'code': 'ie', 'country': 'Éire' }, { 'code': 'nl', 'country': 'Nederland' } ];
+
 //Detta kör när sidan har laddats
 $(document).ready(function() {
-	makeRequest();
-	newsLightBox();
-
-
-	// Event för CountryKnapparna #LandsEvent
-	$('#usrBtnSwe').click(event => {
-		console.log('Klickade SWE button');
-		makeRequest('se');
-		localStorage.setItem('newsLocation', 'se');
+	//makeRequest('sources'); - api doesn't work so fuck it...
+	countrys.forEach(data => {
+		$('#updateNewsSource').append(`<option value="${data.code}">${data.country}</option>`);
 	});
 
-	$('#usrBtnUS').click(event => {
-		console.log('Klickade US button');
-		makeRequest('us');
-		localStorage.setItem('newsLocation', 'us');
-	}); // Event för CountryKnapparna #LandsEvent
+	$('#updateNewsSource').change(() => {
+		selectedNewsSourceCountry = $('#updateNewsSource').val();
+		// console.log('You change the option to: ', selectedNewsSourceCountry);
+
+		makeRequest('top-headlines', selectedNewsSourceCountry);
+		localStorage.setItem('newsLocation', selectedNewsSourceCountry);
+		$('html').attr('lang', selectedNewsSourceCountry);
+	});
 
 	let value = localStorage.getItem('newsLocation');
 	if( value !== null) {
-			makeRequest(value);
+			makeRequest('top-headlines', value);
+			$('html').attr('lang', value);
+			$('#updateNewsSource').val(value);
+	} else {
+		makeRequest('top-headlines', 'se');
 	}
-
 });  // document ready
 
-//Function för "lightboxen"
-function newsLightBox () {
-	// Open up a 'lightbox' if user clicks on update newsSource.
-	$('#updateNewsSource').on('click', () => {
-		$('#newSelectorBox').fadeIn(400);
-		// now loop the new source inside the #newSelectorBox > div and let the user select the new source.
-
-		// add so that the selected news source update the news list, saves the newSelectorBoxtting in a cookie and closes the 'lightbox'
-
-		// add so the 'lightbox' closes if you click anywhere but the #newSelectorBox > div.
-		$('#newSelectorBox > div > .close').on('click', () => {
-			$('#newSelectorBox').fadeOut(300);
-		});
-	});
-} // light box
 
 //Anrop till API via function
-function makeRequest(requestCountry='se', typeOfRequest='top-headlines', newsSources, pageSize, sortBy, language) {
-	console.log('A new request was sent');
+function makeRequest(typeOfRequest, userLanguage) {
+	// console.log('With typeOfRequest=' + typeOfRequest);
+	// console.log('With userLanguage=' + userLanguage);
+
 	//requestCountry = localStorage.getItem(requestCountry);
 	let url = '';
 
 	switch (typeOfRequest) { // Check that it's a valid request being made and which api url we need to use.
 		case 'top-headlines':
-			console.log('Requested: top-headlines');
-			// 'Top headlines' possible Request parameters is: country, category, sources, q, pageSize, page
+			// console.log('Requested: everything');
 			url = `https://newsapi.org/v2/${typeOfRequest}?` +
-			`country=${requestCountry}&` +
-			'apiKey=515e289985aa4ee8bfa95ea816773b14';
-		break;
-		case 'everything':
-			console.log('Requested: everything');
-			// 'Everything' possible Request parameters is: sources, q, pageSize, page, domains, excludeDomains, from, to, language, sortBy
-			url = `https://newsapi.org/v2/${typeOfRequest}?` +
-			`country=${requestCountry}&` +
+			`country=${userLanguage}&` +
+			`pageSize=100&` +
 			'apiKey=515e289985aa4ee8bfa95ea816773b14';
 		break;
 		case 'sources':
-			console.log('Requested: sources');
-			// 'Everything' possible Request parameters is: category, language, country
+			// console.log('Requested: sources');
 			url = `https://newsapi.org/v2/${typeOfRequest}?` +
-			`country=${requestCountry}&` +
 			'apiKey=515e289985aa4ee8bfa95ea816773b14';
 		break;
 		default:
@@ -76,30 +56,45 @@ function makeRequest(requestCountry='se', typeOfRequest='top-headlines', newsSou
 	}
 	let req = new Request(url);
 	fetch(req)
-	.then(function(response) {
-		// Detta skall köras när & om man fick svar
-		return response.json();
-	})
+	.then(response => response.json())
 	.then(whenDataRecieved);
 } // makeRequest
 
 function whenDataRecieved(data) {
-	console.log('data: ', data);
-	$('#articlesLeft').html('');
-	for(let i=0; i < 3; i++) {
-		let newsText = convertArticleToHtml(data.articles[i])
-		//console.log(newsText);
-		$('#articlesLeft').append(newsText);
-	}
-// function whenArticlesRight(data)
-	$('#articlesRight').html('');
-	for(let x=5; x < 10; x++) {
-		let newsRight = convertArticleRightToHtml(data.articles[x])
-		//console.log(newsText);
-		$('#articlesRight').append(newsRight);
-
-	}
-
+	// console.log(data);
+	if(typeof data.sources == 'object') {
+		// display all the countrys...
+		// console.log('data.sources is here');
+		let countrys = [];
+		for (let i=0; i < data.sources.length; i++) {
+			if(!countrys.includes(data.sources[i].country)) {
+				//if source country is not in the array, we add it to the list of possible countrys..
+				// console.log('we added ' + data.sources[i].country + ' to our list of countrys');
+				countrys.push(data.sources[i].country);
+				$('#updateNewsSource').append(`<option value="${data.sources[i].country}">${data.sources[i].country}</option>`);
+			}
+		}
+		// console.log('countrys array is: ', countrys);
+	} else {
+		// display all the article
+		// console.log('data.sources is not here so list all the news sources');
+		$('#articlesLeft').html('');
+		for(let i=0; i < 10; i++) {
+			let newsText = convertArticleToHtml(data.articles[i])
+			//console.log(newsText);
+			$('#articlesLeft').append(newsText);
+		}
+		$('#articlesRight').html('');
+		let properArticles = 0;
+		for(let x=10; properArticles < 40 && x < data.articles.length; x++) {
+			if( data.articles[x] ) {
+				properArticles++;
+				let newsRight = convertArticleRightToHtml(data.articles[x])
+				//console.log(newsText);
+				$('#articlesRight').append(newsRight);
+			}
+		}
+}
 }
 
 	// 1. hämta datan vi vill göra något med
@@ -107,22 +102,33 @@ function whenDataRecieved(data) {
 	// 3. skapa HTML-element med den formaterade strängen
 	// 4. lägg in HTML-elementen på sidan (i <ul>-elementet)
 
-function convertArticleToHtml(artRight) {
+function convertArticleToHtml(artLeft) {
 	//console.log('Artikel-objektet ser ut så här:', article);
 	// for(i=0; i<4; i++) {
-	return ` <article>
-		<img class="" src="${artRight.urlToImage}">
-		<h1 class="newsTitle">${artRight.title}</h1>
-		<p class="">${artRight.description} </p>
-		<div class="">${artRight.publishedAt}</div>
-			</article>`
-		}
+	let imgUrl = 'img/404-Darkside.png'
+	if( artLeft && artLeft.urlToImage )
+		imgUrl = artLeft.urlToImage;
+	return `
+		<article>
+			<img class="" src="${imgUrl}">
+			<h1 class="newsTitle"><a href="${artLeft.url}">${artLeft.title}</a></h1>
+			<p><a href="${artLeft.url}">${artLeft.description}</a></p>
+			<div class="">${artLeft.publishedAt}</div>
+		</article>`;
+}
 
-function convertArticleRightToHtml(artLeft) {
+function convertArticleRightToHtml(artRight) {
 	//console.log('Artikel-objektet ser ut så här:', article);
 	// for(i=0; i<4; i++) {
+	//console.log('Converting article:', artLeft);
+	let imgUrl = 'img/404-Darkside.png';
+	let title = 'Fail title';
+	if( artRight && artRight.urlToImage )
+		imgUrl = artRight.urlToImage;
+	if( artRight && artRight.title )
+		title = artRight.title;
 	return `<div>
-		<img class="" src="${artLeft.urlToImage}">
-		<h2 class="">${artLeft.title}</h2>
+		<img class="" src="${imgUrl}">
+		<h2 class=""><a href="${artRight.url}">${title}</a></h2>
 			</div>`
-		}
+}
